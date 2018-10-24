@@ -475,7 +475,8 @@
 	bibtex-autokey-titlewords 2
 	bibtex-autokey-titlewords-stretch 1
 	bibtex-autokey-titleword-length 5
-	org-ref-bibtex-hydra-key-binding (kbd "H-b"))
+	org-ref-bibtex-hydra-key-binding (kbd "H-b")
+	org-ref-completion-library 'org-ref-ivy-cite)
   ;; (define-key bibtex-mode-map org-ref-bibtex-hydra-key-binding 'org-ref-bibtex-hydra/body)
   ;; (global-set-key (kbd "H-b") 'org-ref-bibtex-hydra/body)
   )
