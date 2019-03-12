@@ -501,6 +501,7 @@ fontification, as long as `org-src-fontify-natively' is non-nil."
 	("" "natbib" nil)
 	("" "url" nil)
 	("" "minted" nil)
+	("" "amsmath" nil)
 	("" "underscore" nil)
 	("" "attachfile" nil)))
 
