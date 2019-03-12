@@ -32,10 +32,14 @@
    ("s-<SPC>" . org-mark-ring-goto)
    ("H-." . org-time-stamp-inactive)))
 
-(use-package org-bullets)
+;; [2019-01-07 Mon] This is another package I don't use, and that sometimes is a
+;; problem on windows installations
+;; (use-package org-bullets)
 
-(use-package org-edna
-  :init (org-edna-load))
+;; [2019-01-07 Mon] I don't use this now, and it frequently causes an issue on
+;; installing scimax
+;; (use-package org-edna
+;;   :init (org-edna-load))
 
 
 ;; * Other packages
@@ -56,11 +60,12 @@
   (use-package tex
     :ensure auctex))
 
-
+;; [2019-01-07 Mon] This also sometimes causes problems installing scimax,
+;; especially on Windows.
 ;; Make cursor more visible when you move a long distance
-(use-package beacon
-  :config
-  (beacon-mode 1))
+;; (use-package beacon
+;;   :config
+;;   (beacon-mode 1))
 
 
 (use-package bookmark
@@ -421,10 +426,6 @@
 ;; https://github.com/Wilfred/mustache.el
 (use-package mustache)
 
-(use-package scimax-ob
-  :ensure nil
-  :load-path scimax-dir)
-
 ;; this is a git submodule
 (if (executable-find "jupyter")
     (use-package ob-ipython
@@ -440,7 +441,6 @@
 
 (use-package ov)
 
-(use-package org-edit-latex)
 ;; Install quelpa and quelpa-use-package for custom package builds
 (use-package quelpa)
 (quelpa
@@ -451,6 +451,10 @@
 ;; Install patched pdf-tools with retn display support
 (use-package pdf-tools
   :quelpa (pdf-tools :fetcher github :repo "irfus/pdf-tools"))
+
+;; [2019-01-23 Wed] commented out. I don't use this at all, and it causes an error on Windows when starting up.
+;; (use-package org-edit-latex)
+
 
 (use-package org-mime
   :ensure nil
@@ -596,9 +600,10 @@
   :ensure nil
   :load-path scimax-dir)
 
-(use-package scimax-notebook
-  :ensure nil
-  :load-path scimax-dir)
+(org-babel-load-file (expand-file-name "scimax-notebook.org" scimax-dir))
+;; (use-package scimax-notebook
+;;   :ensure nil
+;;   :load-path scimax-dir)
 
 (use-package scimax-utils
   :ensure nil
@@ -631,11 +636,15 @@
   :load-path scimax-dir
   :bind ("H-o" . ore))
 
-(use-package org-editmarks
+;; (use-package org-editmarks
+;;   :ensure nil
+;;   :load-path scimax-dir)
+
+(use-package scimax-ivy
   :ensure nil
   :load-path scimax-dir)
 
-(use-package scimax-ivy
+(use-package scimax-lob
   :ensure nil
   :load-path scimax-dir)
 
@@ -652,19 +661,32 @@
   :load-path scimax-dir
   :bind ("<f12>" . scimax/body))
 
+(use-package scimax-journal
+  :ensure nil
+  :load-path scimax-dir)
+
+(use-package scimax-apps
+  :ensure nil
+  :load-path scimax-dir)
+
+(use-package scimax-ob
+  :ensure nil
+  :load-path scimax-dir)
+
 (use-package kitchingroup
   :ensure nil
   :load-path scimax-dir)
 
-(use-package ov-highlight
-  :ensure nil
-  :load-path (lambda () (expand-file-name "ov-highlight" scimax-dir))
-  :bind ("H-h" . ov-highlight/body)
-  :init
-  (add-to-list 'load-path
-	       (expand-file-name "ov-highlight" scimax-dir))
-  (require 'ov-highlight))
+;; (use-package ov-highlight
+;;   :ensure nil
+;;   :load-path (lambda () (expand-file-name "ov-highlight" scimax-dir))
+;;   :bind ("H-h" . ov-highlight/body)
+;;   :init
+;;   (add-to-list 'load-path
+;; 	       (expand-file-name "ov-highlight" scimax-dir))
+;;   (require 'ov-highlight))
 
+(org-babel-load-file (expand-file-name "scimax-editmarks.org" scimax-dir))
 
 ;; * User packages
 

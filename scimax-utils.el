@@ -97,45 +97,7 @@ recent files and bookmarks. You can set a bookmark also."
 (define-key 'vc-prefix-map "P" (lambda () (interactive) (vc-git-pull nil)))
 
 
-;; * Windows
-;;;###autoload
-(defun explorer ()
-  "Open Finder or Windows Explorer in the current directory."
-  (interactive)
-  (cond
-   ((string= system-type "gnu/linux")
-    (shell-command "nautilus"))
-   ((string= system-type "darwin")
-    (shell-command (format "open -b com.apple.finder %s"
-			   (if (buffer-file-name)
-			       (file-name-directory (buffer-file-name))
-			     "~/"))))
-   ((string= system-type "windows-nt")
-    (shell-command (format "explorer %s"
-			   (replace-regexp-in-string
-			    "/" "\\\\"
-			    (if (buffer-file-name)
-				(file-name-directory (buffer-file-name))
-			      (expand-file-name  "~/"))))))))
-
-(defalias 'finder 'explorer "Alias for `explorer'.")
-
-
-(defun bash ()
-  "Open a bash window."
-  (interactive)
-  (cond
-   ((string= system-type "gnu/linux")
-    (shell-command "gnome-terminal"))
-   ((string= system-type "darwin")
-    (shell-command
-     (format "open -b com.apple.terminal \"%s\""
-	     (if (buffer-file-name)
-		 (file-name-directory (buffer-file-name))
-	       (expand-file-name default-directory)))))
-   ((string= system-type "windows-nt")
-    (shell-command "start \"\" \"%SYSTEMDRIVE%\\Program Files\\Git\\bin\\bash.exe\" --login &"))))
-
+;; * Misc
 
 
 ;; case on regions
@@ -154,6 +116,25 @@ sentence in the region."
 (global-set-key (kbd "M-<backspace>") 'backward-kill-word)
 (global-set-key (kbd "C-<backspace>") 'backward-kill-sentence)
 
+;; * avy jump commands
+
+(defun avy-jump-to-word-in-line (&optional arg)
+  "Jump to a word in the current line."
+  (interactive)
+  (avy-with word-jump
+    (avy--process
+     (let ((p '())
+	   (e (line-end-position)))
+       (save-excursion
+	 (goto-char (line-beginning-position))
+	 (push (point) p)
+	 (while (< (point) e)
+	   (forward-word)
+	   (save-excursion
+	     (backward-word)
+	     (push (point) p)))
+	 (reverse p)))
+     (avy--style-fn avy-style))))
 
 (defun avy-jump-to-sentence ()
   "Jump to a sentence with avy."
@@ -185,7 +166,9 @@ sentence in the region."
 	 (push (point) p)
 	 (while (< (point) e)
 	   (forward-paragraph)
-	   (push (point) p))
+	   (save-excursion
+	     (backward-paragraph)
+	     (push (+ 1 (point)) p)))
 	 (reverse p)))
      (avy--style-fn avy-style))))
 

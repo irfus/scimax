@@ -1,6 +1,8 @@
 # -*- mode: snippet -*-
-# name: table with two columns
-# key: <t2
+# name: shell
+# key: <sh
 # contributor: John Kitchin <jkitchin@andrew.cmu.edu>
 # --
-| $0 |  |
+#+BEGIN_SRC sh
+$0
+#+END_SRC

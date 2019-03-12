@@ -59,7 +59,7 @@
     (load-file "init.el")))
 
 ;; * Diminish modes
-(diminish 'orgstruct-mode)
+;; (diminish 'orgstruct-mode)
 (diminish 'ivy-mode)
 (diminish 'lispy-mode)
 (diminish 'abbrev-mode)
@@ -88,17 +88,20 @@
 
 (font-lock-add-keywords 'emacs-lisp-mode lel-font-lock-keywords)
 
-(defun lisp-outline-setup ()
-  "Setup outline and orgstruct mode for emacs-lisp code.
-This enables you to use tab to open and close outlines."
-  (setq-local outline-regexp ";; ?\\*+\\|\\`")
-  (setq-local orgstruct-heading-prefix-regexp ";; ?\\*+\\|\\`")
-  (outline-minor-mode)
-  (orgstruct-mode)
-  (outline-show-branches))
+;; (defun lisp-outline-setup ()
+;;   "Setup outline and orgstruct mode for emacs-lisp code.
+;; This enables you to use tab to open and close outlines."
+;;   (setq-local outline-regexp ";; ?\\*+\\|\\`")
+;;   (setq-local orgstruct-heading-prefix-regexp ";; ?\\*+\\|\\`")
+;;   (outline-minor-mode)
+;;   (orgstruct-mode)
+;;   (outline-show-branches))
 
-(add-hook 'emacs-lisp-mode-hook
-	  #'lisp-outline-setup)
+;; (add-hook 'emacs-lisp-mode-hook
+;; 	  #'lisp-outline-setup)
+
+;; (remove-hook 'emacs-lisp-mode-hook
+;;  	  #'lisp-outline-setup)
 
 ;; ** Python
 (setq python-indent-offset 4)
@@ -132,12 +135,12 @@ This enables you to use tab to open and close outlines."
 	(end-of-line)
 	t))))
 
-(add-hook 'python-mode-hook
-	  (lambda ()
-	    (setq outline-regexp "# \\*+"
-		  orgstruct-heading-prefix-regexp "# ?\\*+\\|\\`")
-	    (orgstruct-mode)
-	    (org-global-cycle 3)))
+;; (add-hook 'python-mode-hook
+;; 	  (lambda ()
+;; 	    (setq outline-regexp "# \\*+"
+;; 		  orgstruct-heading-prefix-regexp "# ?\\*+\\|\\`")
+;; 	    (orgstruct-mode)
+;; 	    (org-global-cycle 3)))
 
 ;; * Misc
 
@@ -331,43 +334,53 @@ This enables you to use tab to open and close outlines."
 ;; http://ergoemacs.org/emacs/elisp_dired_rename_space_to_underscore.html
 (require 'dired )
 
-(defun xah-dired-rename-space-to-underscore ()
-  "In dired, rename current or marked files by replacing space to underscore _.
-If not in `dired', do nothing.
-URL `http://ergoemacs.org/emacs/elisp_dired_rename_space_to_underscore.html'
-Version 2016-12-22"
+(defun scimax-dired-cycle-space-hyphen-underscore ()
+  "In dired, rename current or marked files by cycling spaces->hyphens->underscores.
+We only change the filename, not the rest of the path.
+Adapted from http://ergoemacs.org/emacs/elisp_dired_rename_space_to_underscore.html."
   (interactive)
+  (require 'f)
   (require 'dired-aux)
   (if (equal major-mode 'dired-mode)
-      (progn
-        (mapc (lambda (x)
-                (when (string-match " " x )
-                  (dired-rename-file x (replace-regexp-in-string " " "_" x) nil)
-                  ))
-              (dired-get-marked-files ))
-        (revert-buffer)
-        (forward-line ))
+      (let ((p (point))
+	    (new-names '())
+	    ;; evals to 2 if only one file is marked
+	    (number-marked-files (length (dired-get-marked-files nil nil nil t))))
+	(progn
+	  (mapc (lambda (x)
+		  (let* ((path-parts (f-split x))
+			 (path-file-name (car (last path-parts))))
+		    (cond
+		     ;; There is a space, so we switch them all to -
+		     ((string-match " " path-file-name)
+		      (setcar (last path-parts)
+			      (replace-regexp-in-string " " "-" path-file-name)))
+		     ;; no spaces, but - gets converted to _
+		     ((string-match "-" path-file-name)
+		      (setcar (last path-parts)
+			      (replace-regexp-in-string "-" "_" path-file-name)))
+		     ;; no -, convert _ to spaces
+		     ((string-match "_" path-file-name)
+		      (setcar (last path-parts)
+			      (replace-regexp-in-string "_" " " path-file-name))))
+
+		    ;; now rename the file if match
+		    (if (string-match "[\-|_| ]" path-file-name)
+			(dired-rename-file x (apply 'f-join path-parts) nil))
+		    ;; and save it so we can remark it at the end
+		    (push (apply 'f-join path-parts) new-names)))
+		(dired-get-marked-files))
+	  (revert-buffer)
+	  (when (not (eq 1 number-marked-files))
+	    (loop for f in new-names do
+		  (dired-goto-file f)
+		  (dired-mark nil))))
+	(goto-char p))
     (user-error "Not in dired")))
 
+(define-key dired-mode-map (kbd "-") 'scimax-dired-cycle-space-hyphen-underscore)
 
-(defun xah-dired-rename-space-to-hyphen ()
-  "In dired, rename current or marked files by replacing space to hyphen -.
-If not in `dired', do nothing.
-URL `http://ergoemacs.org/emacs/elisp_dired_rename_space_to_underscore.html'
-Version 2016-12-22"
-  (interactive)
-  (require 'dired-aux)
-  (if (equal major-mode 'dired-mode)
-      (progn
-        (mapc (lambda (x)
-                (when (string-match " " x )
-                  (dired-rename-file x (replace-regexp-in-string " " "_" x) nil)))
-              (dired-get-marked-files ))
-        (revert-buffer))
-    (user-error "Not in dired")))
 
-(define-key dired-mode-map (kbd "_") 'xah-dired-rename-space-to-underscore)
-(define-key dired-mode-map (kbd "-") 'xah-dired-rename-space-to-hyphen)
 
 ;; * dubcaps
 (defun dcaps-to-scaps ()
@@ -474,6 +487,10 @@ Default to killing the word at point"
 	   (start (car bounds))
 	   (end (cdr bounds)))
       (kill-region start end)))))
+
+
+;; * garbage-collect when you switch out of Emacs
+(add-hook 'focus-out-hook #'garbage-collect)
 
 ;; * The end
 (provide 'scimax)

@@ -33,8 +33,25 @@
   :group 'ob-ipython)
 
 (defcustom ob-ipython-suppress-execution-count nil
-  "If non-nil do not show the execution count in output."
+  "Deprecated. See `ob-ipython-execution-count'.
+If non-nil do not show the execution count in output."
   :group 'ob-ipython)
+
+(defcustom ob-ipython-execution-count
+  #'ob-ipython-execution-count-output
+  "Function for showing the execution count.
+The function takes one argument, the execution count. It should return a string to be displayed. Use an empty string to suppress the count.
+`ob-ipython-execution-count-suppress' will not show anything.
+`ob-ipython-execution-count-output' will show a string in the ouput.
+`ob-ipython-execution-count-overlay' will show an overlay in the margin.
+`ob-ipython-execution-count-attribute' will store it in a src-block attribute."
+  :group 'ob-ipython
+  :type 'function)
+
+(defcustom ob-ipython-count-overlay-width 11
+  "Width of the left-margin fringe for the execution count overlays."
+  :group 'ob-ipython
+  :type 'number)
 
 (defcustom ob-ipython-kill-kernel-on-exit t
   "If non-nil, prompt user to kill kernel when killing a buffer."
@@ -70,7 +87,7 @@ string to be formatted."
   :group 'ob-ipython)
 
 (defcustom ob-ipython-key-bindings
-  '(("<return>" . #'org-return-indent)
+  '(("<return>" . #'newline-and-indent)
     ("C-<return>" . #'org-ctrl-c-ctrl-c)
     ("M-<return>" . (lambda () (interactive) (scimax-execute-and-next-block t)))
     ("S-<return>" . #'scimax-execute-and-next-block)
@@ -101,13 +118,11 @@ string to be formatted."
     ("H-h" . #'scimax-ob-edit-header)
     ("H-M-l" . #'scimax-ob-toggle-line-numbers)
     ("s-." . #'scimax-ob-ipython-complete-ivy)
+    ("s-/" . #'ob-ipython-inspect)
 
     ;; the jupyter hydras
     ("H-e" . #'scimax-jupyter-edit-mode/body)
     ("H-c" . #'scimax-jupyter-command-mode/body)
-
-    ;; Miscellaneous
-    ("H-/" . #'ob-ipython-inspect)
 
     ;; The hydra/popup menu
     ("H-s" . #'scimax-obi/body)
@@ -136,11 +151,17 @@ These are activated in function `ob-ipython-key-bindings'."
      ["Toggle line numbers" scimax-ob-toggle-line-numbers t])
     ("Navigate"
      ["Previous block" org-babel-previous-src-block t]
-     ["Next block" org-babel-next-src-block t]
+     ["Next block" (lambda ()
+		     (interactive)
+		     (org-babel-next-src-block))
+      t]
      ["Jump to visible block" scimax-jump-to-visible-block t]
      ["Jump to block" scimax-jump-to-block t])
     ["Inspect" ob-ipython-inspect t]
-    ["Show source" (lambda () (interactive) (ob-ipython-inspect t)) t]
+    ["Show source" (lambda ()
+		     (interactive)
+		     (ob-ipython-inspect))
+     t]
     ["Kill kernel" scimax-ob-ipython-kill-kernel t]
     ["Switch to repl" org-babel-switch-to-session t])
   "Items for the menu bar and popup menu."
@@ -177,17 +198,31 @@ Usually called in a hook function."
 
 ;; * org templates and default header args
 
-(add-to-list 'org-structure-template-alist
-	     '("ip" "#+BEGIN_SRC ipython\n?\n#+END_SRC"
-	       "<src lang=\"python\">\n?\n</src>"))
+;; org 9.2 changed this variable in a backwards incompatible way. I think I do
+;; all of these through yasnippet now, so I am going to just comment these out
+;; for now, in case I want to add them to a snippet later.
 
-(add-to-list 'org-structure-template-alist
-	     '("ipv" "#+BEGIN_SRC ipython :results value\n?\n#+END_SRC"
-	       "<src lang=\"python\">\n?\n</src>"))
+;; (add-to-list 'org-structure-template-alist
+;; 	     '("ip" "#+BEGIN_SRC ipython\n?\n#+END_SRC"
+;; 	       "<src lang=\"python\">\n?\n</src>"))
 
-(add-to-list 'org-structure-template-alist
-	     '("plt" "%matplotlib inline\nimport matplotlib.pyplot as plt\n"
-	       ""))
+;; (add-to-list 'org-structure-template-alist
+;; 	     '("ipv" "#+BEGIN_SRC ipython :results value\n?\n#+END_SRC"
+;; 	       "<src lang=\"python\">\n?\n</src>"))
+
+;; (add-to-list 'org-structure-template-alist
+;; 	     '("plt" "%matplotlib inline\nimport matplotlib.pyplot as plt\n?"
+;; 	       ""))
+
+;; (add-to-list 'org-structure-template-alist
+;; 	     '("np" "import numpy as np\n?"
+;; 	       ""))
+
+;; (add-to-list 'org-structure-template-alist
+;; 	     '("anp" "import autograd.numpy as np\n?"
+;; 	       ""))
+
+
 
 (setq org-babel-default-header-args:ipython
       '((:results . "output replace drawer")
@@ -214,18 +249,61 @@ You need this to get syntax highlighting."
 
 (defhydra scimax-obi (:color blue :hint nil)
   "
-        Execute                   Navigate     Edit             Misc
-----------------------------------------------------------------------
-    _<return>_: current           _i_: previous  _w_: move up     _/_: inspect
-  _S-<return>_: current to next   _k_: next      _s_: move down   _l_: clear result
-_S-M-<return>_: to point          _q_: visible   _x_: kill        _L_: clear all
-  _s-<return>_: Restart/block     _Q_: any       _n_: copy        _._: complete
-_M-s-<return>_: Restart/to point  ^ ^            _c_: clone
-  _H-<return>_: Restart/buffer    ^ ^            _m_: merge
-           _K_: kill kernel       ^ ^            _-_: split
-           _r_: Goto repl         ^ ^            _+_: insert above
-           ^ ^                    ^ ^            _=_: insert below
-           ^ ^                    ^ ^            _h_: header"
+        Execute                   Navigate                 Edit             Misc
+-----------------------------------------------------------------------------------------------------------------------------
+    _<return>_: current           _i_: previous            _w_: move up     _._: inspect                 _<up>_:
+  _S-<return>_: current to next   _k_: next                _s_: move down   _l_: clear result  _<left>_:           _<right>_:
+_S-M-<return>_: to point          _q_: visible             _x_: kill        _L_: clear all              _<down>_:
+  _s-<return>_: Restart/block     _Q_: any                 _n_: copy        _,_: complete
+_M-s-<return>_: Restart/to point  _C-<up>_: goto start     _c_: clone       _o_: toggle result folding
+  _H-<return>_: Restart/buffer    _C-<down>_: goto end     _m_: merge
+           _K_: kill kernel       _C-<left>_: word left    _-_: split
+           _r_: Goto repl         _C-<right>_: word right  _+_: insert above
+           ^ ^                    ^ ^                      _=_: insert below
+           ^ ^                    ^ ^                      _h_: header
+_[_: dedent _]_: indent  _3_: toggle comment  _z_: undo    _y_: redo
+Convert
+------------------------------------------------------------------
+_y_: to code
+_M_: to markdown
+_O_: to org
+markdown headings _1_: _2_: _3_: _4_: _5_: _6_:
+"
+  ("o" ob-ipython-toggle-output :color red)
+  ("<up>" ob-ipython-edit-up :color red)
+  ("<down>" ob-ipython-edit-down :color red)
+  ("<left>" left-char :color red)
+  ("<right>" right-char :color red)
+  ("C-<up>" ob-ipython-jump-to-first-line)
+  ("C-<down>" ob-ipython-jump-to-end-line)
+  ("C-<left>" left-word :color red)
+  ("C-<right>" right-word :color red)
+
+  ;; These don't really have great analogs in org-mode, but maybe it makes sense
+  ;; to be able to do this.
+  ("y" (ob-ipython-convert-block-to "ipython"))
+  ("M" (ob-ipython-convert-block-to "markdown"))
+  ("O" (ob-ipython-convert-block-to "org"))
+
+  ;; These change to markdown block and trim blank lines off the top and add #
+  ;; to beginning
+  ("1" (ob-ipython-markdown-headings 1))
+  ("2" (ob-ipython-markdown-headings 2))
+  ("3" (ob-ipython-markdown-headings 3))
+  ("4" (ob-ipython-markdown-headings 4))
+  ("5" (ob-ipython-markdown-headings 5))
+  ("6" (ob-ipython-markdown-headings 6))
+
+  ("z" undo-tree-undo :color red)
+  ("y" undo-tree-redo :color red)
+  ("[" (progn
+	 (org-edit-special)
+	 (python-indent-line t)
+	 (org-edit-src-exit))  :color red)
+  ("]" (progn
+	 (org-edit-special)
+	 (python-indent-line)
+	 (org-edit-src-exit))  :color red)
   ("<return>" org-ctrl-c-ctrl-c :color red)
   ("S-<return>" scimax-execute-and-next-block :color red)
   ("S-M-<return>" scimax-execute-to-point)
@@ -252,9 +330,9 @@ _M-s-<return>_: Restart/to point  ^ ^            _c_: clone
   ("l" org-babel-remove-result)
   ("L" scimax-ob-clear-all-results)
   ("h" scimax-ob-edit-header)
-
-  ("/" ob-ipython-inspect)
-  ("." scimax-ob-ipython-complete-ivy))
+  ("3" org-comment-dwim :color red)
+  ("." ob-ipython-inspect)
+  ("," scimax-ob-ipython-complete-ivy))
 
 ;; * command/edit-mode hydra
 
@@ -457,17 +535,17 @@ _s_: save buffer  _z_: undo _<return>_: edit mode
   ;; These change to markdown block and trim blank lines off the top and add #
   ;; to beginning
   ("1" (ob-ipython-markdown-headings 1) "to heading 1")
-  ("2" (ob-ipython-markdown-headings 1) "to heading 2")
-  ("3" (ob-ipython-markdown-headings 1) "to heading 3")
-  ("4" (ob-ipython-markdown-headings 1) "to heading 4")
-  ("5" (ob-ipython-markdown-headings 1) "to heading 5")
-  ("6" (ob-ipython-markdown-headings 1) "to heading 6")
+  ("2" (ob-ipython-markdown-headings 2) "to heading 2")
+  ("3" (ob-ipython-markdown-headings 3) "to heading 3")
+  ("4" (ob-ipython-markdown-headings 4) "to heading 4")
+  ("5" (ob-ipython-markdown-headings 5) "to heading 5")
+  ("6" (ob-ipython-markdown-headings 6) "to heading 6")
 
   ;; navigation
   ("<up>" org-babel-previous-src-block "select cell above" :color red)
   ("k" org-babel-previous-src-block "select cell above" :color red)
-  ("<down>" org-babel-next-src-block "select cell below" :colr red)
-  ("j" org-babel-next-src-block "select cell below" :colr red)
+  ("<down>" org-babel-next-src-block "select cell below" :color red)
+  ("j" org-babel-next-src-block "select cell below" :color red)
 
   ("a" scimax-insert-src-block "insert cell above")
   ("b" (scimax-insert-src-block t) "insert cell below")
@@ -526,11 +604,9 @@ _s_: save buffer  _z_: undo _<return>_: edit mode
 
 
 (defun scimax-ob-ipython-popup-command (event)
-  "Popu a menu of actions for src blocks."
+  "Popup a menu of actions for src blocks."
   (interactive "e")
-  (call-interactively
-   (or (popup-menu (append '("ob-ipython") ob-ipython-menu-items))
-       'ignore)))
+  (popup-menu (append '("ob-ipython") ob-ipython-menu-items)))
 
 ;; * Execution functions
 
@@ -573,7 +649,7 @@ _s_: save buffer  _z_: undo _<return>_: edit mode
 (defun scimax-ob-ipython-kill-kernel ()
   "Kill the active kernel."
   (interactive)
-  (when (y-or-n-p "Kill kernel? ")
+  (when (and (not (s-contains? "*temp*" (buffer-name))) (y-or-n-p "Kill kernel? "))
     (ob-ipython-kill-kernel
      (cdr (assoc (scimax-ob-ipython-default-session)
 		 (ob-ipython--get-kernel-processes))))
@@ -749,7 +825,9 @@ This function is called by `org-babel-execute-src-block'."
 		(when (f-exists? f)
 		  (f-delete f)))
 	      files))))
-  (org-babel-remove-result)
+
+  ;; [2019-02-24 Sun] this line removes results in dependent blocks which isn't what we want.
+  ;; (org-babel-remove-result nil t)
 
   ;; scimax feature to restart
   (when (assoc :restart params)
@@ -819,11 +897,21 @@ This function is called by `org-babel-execute-src-block'."
 	  (setf (cdr (assoc :value (assoc :result ret)))
 		(-filter (lambda (el) (memq (car el) ',display))
 			 (cdr (assoc :value (assoc :result ret))))))
-	(let* ((replacement (ob-ipython--process-response ret file result-type)))
-	  (ipython--async-replace-sentinel sentinel buffer replacement)))
+	(save-window-excursion
+	  (save-excursion
+	    (save-restriction
+	      (with-current-buffer buffer
+		(goto-char (point-min))
+		(re-search-forward sentinel)
+		(re-search-backward "\\(call\\|src\\)_\\|^[ \t]*#\\+\\(BEGIN_SRC\\|CALL:\\)")
+		(org-babel-remove-result)
+		(org-babel-insert-result
+		 (ob-ipython--process-response ret file result-type)
+		 (cdr (assoc :result-params (nth 2 (org-babel-get-src-block-info)))))
+		(org-redisplay-inline-images))))))
 
      (list sentinel (current-buffer) file result-type))
-    (format "%s - %s <output>" (length ob-ipython--async-queue) sentinel)))
+    (format "%s - %s <output> <interrupt>" (length ob-ipython--async-queue) sentinel)))
 
 
 (defun ob-ipython--execute-sync (body params)
@@ -858,6 +946,59 @@ This function is called by `org-babel-execute-src-block'."
 	(ob-ipython--process-response ret file result-type)))))
 
 
+(defun ob-ipython-execution-count-suppress (N)
+  "Function that does not display the execution count."
+  "")
+
+
+(defun ob-ipython-execution-count-output (N)
+  "Return a string for the execution count in the output."
+  (format "# Out [%d]: \n" N))
+
+
+(defun ob-ipython-clear-execution-count-overlays ()
+  "Clear the execution count overlays."
+  (interactive)
+  (ov-clear 'ob-ipython-execution-count)
+  (set-window-margins (get-buffer-window) 0))
+
+
+(defun ob-ipython-execution-count-overlay (N)
+  "Put the execution count in an overlay in the left margin.
+The overlays are not persistent, and are not saved."
+  (set-window-margins (get-buffer-window) ob-ipython-count-overlay-width)
+  (let ((display-string (format "Out [%d]: " N))
+	ov)
+    (save-excursion
+      (scimax-ob-jump-to-header)
+      (setq ov (or (ov-at) (make-overlay (point) (incf (point)))))
+      (overlay-put ov 'ob-ipython-execution-count t)
+      (overlay-put ov
+		   'before-string
+		   (concat
+		    (propertize " " 'display
+				`((margin left-margin) ,display-string))))))
+  ;; Return an empty string so there is nothing in the output
+  "")
+
+
+(defun ob-ipython-execution-count-attribute (N)
+  "Put the execution count in a src-block attribute."
+  (let ((src (org-element-context)))
+    (if (-any (lambda (s)
+		(string-match ":execution-count" s))
+	      (org-element-property :attr_org src))
+	(save-excursion
+	  (re-search-backward "^#\\+attr_org: :execution-count \\([0-9]+\\)")
+	  (replace-match (format "%d" N) nil nil nil 1))
+      ;; Add new attribute
+      (save-excursion
+	(scimax-ob-jump-to-header)
+	(insert (format "#+attr_org: :execution-count %d\n" N)))))
+  ;; Empty string so there is no output.
+  "")
+
+
 ;; This gives me the output I want. Note I changed this to process one result at
 ;; a time instead of passing all the results to `ob-ipython--render.
 (defun ob-ipython--process-response (ret file result-type)
@@ -877,16 +1018,20 @@ This function is called by `org-babel-execute-src-block'."
 	(ansi-color-apply-on-region (point-min) (point-max))
 	(special-mode)))
 
-    (s-concat
-     (if ob-ipython-suppress-execution-count
-	 ""
-       (format "# Out[%d]:\n" (cdr (assoc :exec-count ret))))
-     (when (and (not (string= "" output)) ob-ipython-show-mime-types) "# output\n")
-     (ob-ipython-format-output nil output)
-     ;; I process the outputs one at a time here.
-     (s-join "\n\n" (loop for (type . value) in (append value display)
-			  collect
-			  (ob-ipython--render file (list (cons type value))))))))
+    (if (eq 'inline-src-block (car (org-element-context)))
+	(cdr (assoc 'text/plain value))
+      (s-concat
+       (funcall ob-ipython-execution-count (cdr (assoc :exec-count ret)))
+       (when (and (not (string= "" output)) ob-ipython-show-mime-types) "# output\n")
+       (funcall (cdr (assoc 'output ob-ipython-mime-formatters)) nil output)
+       ;; I process the outputs one at a time here.
+       (s-join "\n\n" (loop for (type . value) in (append value display)
+			    collect
+			    (ob-ipython--render
+			     (if (memq type '(image/png image/svg))
+				 (pop file)
+			       file)
+			     (list (cons type value)))))))))
 
 
 ;; ** Formatters for output
@@ -901,11 +1046,15 @@ This adds : to the beginning so the output will export as
 verbatim text. FILE-OR-NIL is not used, and is here for
 compatibility with the other formatters."
   (when (not (string= "" output))
-    (concat (s-join "\n"
-		    (mapcar (lambda (s)
-			      (s-concat *ob-ipython-output-results-prefix* s))
-			    (s-split "\n" output)))
-	    "\n")))
+    (let (*ob-ipython-output-results-prefix*)
+      (when (-contains?
+	     (s-split " " (cdr (assoc :results (caddr (org-babel-get-src-block-info t))))) "code")
+	(setq *ob-ipython-output-results-prefix* ""))
+      (concat (s-join "\n"
+		      (mapcar (lambda (s)
+				(s-concat *ob-ipython-output-results-prefix* s))
+			      (s-split "\n" output)))
+	      "\n"))))
 
 
 (defun ob-ipython-format-text/plain (file-or-nil value)
@@ -954,53 +1103,102 @@ FILE-OR-NIL is not used in this function."
 		     value)))
 
 
-(defun ob-ipython--generate-file-name (suffix)
-  "Generate a file name to store an image in.
-I added an md5-hash of the buffer name so you can tell what file
-the names belong to. This is useful later to delete files that
-are no longer used."
-  (s-concat (make-temp-name
-	     (concat (f-join ob-ipython-resources-dir (if-let (bf (buffer-file-name))
-							  (md5 (expand-file-name bf))
-							"scratch"))
-		     "-"))
-	    suffix))
-
-
 (defun ob-ipython-format-image/png (file-or-nil value)
   "Format VALUE for image/png mime-types.
-FILE-OR-NIL if non-nil is the file to save the image in. If nil,
-a filename is generated."
-  (let ((file (or file-or-nil (ob-ipython--generate-file-name ".png"))))
-    (ob-ipython--write-base64-string file value)
-    (s-join "\n" (list
-		  (if ob-ipython-show-mime-types "# image/png" "")
-		  (format "[[file:%s]]" file)))))
+FILE-OR-NIL if non-nil is either a plist of values or a string."
+  (let ((require-final-newline nil)
+	(file (cond
+	       ;; A string is the filename
+	       ((stringp file-or-nil) file-or-nil)
+	       ;; You specified a filename
+	       ((and (listp file-or-nil) (plist-get file-or-nil :filename))
+		(plist-get file-or-nil :filename))
+	       ;; make a filename
+	       (t
+		(f-join ob-ipython-resources-dir
+			(if-let (bf (buffer-file-name))
+			    (sha1 (expand-file-name bf))
+			  "scratch")
+			(concat (sha1 value) ".png"))))))
+    ;; Write file to disk
+    (when (file-name-directory file)
+      (unless (file-directory-p (file-name-directory file))
+	(make-directory (file-name-directory file) t)))
+    (with-temp-file file
+      (insert (base64-decode-string value)))
 
-
-(defun ob-ipython--write-base64-string (file b64-string)
-  "Write to FILE the image in B64-STRING.
-Note: the original version of this would sometimes hang, so I
-rewrote this."
-  (if b64-string
-      (progn
-	(unless (file-directory-p (file-name-directory file))
-	  (make-directory (file-name-directory file) t))
-	(with-temp-file file
-	  (insert (base64-decode-string b64-string))))
-    (error "No output was produced to write to a file.")))
+    ;; Return the string for the result
+    (s-join
+     "\n"
+     (remove nil
+	     (list
+	      (if ob-ipython-show-mime-types "# image/png" "")
+	      (when (listp file-or-nil)
+		(when-let (attr (plist-get file-or-nil :attr_org))
+		  (format "#+attr_org: %s" attr)))
+	      (when (listp file-or-nil)
+		(when-let (attr (plist-get file-or-nil :attr_html))
+		  (format "#+attr_html: %s" attr)))
+	      (when (listp file-or-nil)
+		(when-let (attr (plist-get file-or-nil :attr_latex))
+		  (format "#+attr_latex: %s" attr)))
+	      (when (listp file-or-nil)
+		(when-let (caption (plist-get file-or-nil :caption))
+		  (format "#+caption: %s" caption)))
+	      (when (listp file-or-nil)
+		(when-let (name (plist-get file-or-nil :name))
+		  (format "#+name: %s" name)))
+	      (format "[[file:%s]]" file))))))
 
 
 (defun ob-ipython-format-image/svg+xml (file-or-nil value)
   "Format VALUE for image/svg+xml mime-types.
 FILE-OR-NIL if non-nil is the file to save the image in. If nil,
 a filename is generated."
-  (let ((file (or file-or-nil (ob-ipython--generate-file-name ".svg"))))
-    (ob-ipython--write-string-to-file file value)
-    (s-join "\n"
-	    (list
-	     (if ob-ipython-show-mime-types "# image/svg" "")
-	     (format "[[file:%s]]" file)))))
+  (let ((require-final-newline nil)
+	(file (cond
+	       ;; A string is the filename
+	       ((stringp file-or-nil) file-or-nil)
+	       ;; You specified a filename
+	       ((and (listp file-or-nil) (plist-get file-or-nil :filename))
+		(plist-get file-or-nil :filename))
+	       ;; make a filename
+	       (t
+		(f-join ob-ipython-resources-dir
+			(if-let (bf (buffer-file-name))
+			    (sha1 (expand-file-name bf))
+			  "scratch")
+			(concat (sha1 value) ".svg"))))))
+    ;; Write file to disk
+    (when (file-name-directory file)
+      (unless (file-directory-p (file-name-directory file))
+	(make-directory (file-name-directory file) t)))
+
+    (with-temp-file file
+      (insert value))
+
+    ;; Return the string for the result
+    (s-join
+     "\n"
+     (remove nil
+	     (list
+	      (if ob-ipython-show-mime-types "# image/svg" "")
+	      (when (listp file-or-nil)
+		(when-let (attr (plist-get file-or-nil :attr_org))
+		  (format "#+attr_org: %s" attr)))
+	      (when (listp file-or-nil)
+		(when-let (attr (plist-get file-or-nil :attr_html))
+		  (format "#+attr_html: %s" attr)))
+	      (when (listp file-or-nil)
+		(when-let (attr (plist-get file-or-nil :attr_latex))
+		  (format "#+attr_latex: %s" attr)))
+	      (when (listp file-or-nil)
+		(when-let (caption (plist-get file-or-nil :caption))
+		  (format "#+caption: %s" caption)))
+	      (when (listp file-or-nil)
+		(when-let (name (plist-get file-or-nil :name))
+		  (format "#+name: %s" name)))
+	      (format "[[file:%s]]" file))))))
 
 
 (defun ob-ipython-format-application/javascript (file-or-nil value)
@@ -1110,7 +1308,7 @@ Note, this does not work if you run the block async."
   ;; It is probably helpful to be at the end of a symbol, otherwise you may get
   ;; help on something else.
   (save-excursion
-    (when (not (looking-back "\s_\b" (line-beginning-position)))
+    (when (not (looking-back "\\_>" (line-beginning-position)))
       (forward-symbol 1)
       (setq pos (point))))
 
@@ -1136,6 +1334,8 @@ Note, this does not work if you run the block async."
 
 ;; * eldoc integration
 
+;; This may not be the speediest way to do this, since it runs the
+;; ob-ipython-inspect function.
 (defun scimax-ob-ipython-signature ()
   "Try to return a function signature for the thing at point."
   (when (and (eql major-mode 'org-mode)
@@ -1185,6 +1385,7 @@ Note, this does not work if you run the block async."
   (scimax-ob-ipython-turn-on-eldoc))
 
 ;; * Completion
+
 ;; This makes this function work from an org-buffer.
 (defun ob-ipython-completions (buffer pos)
   "Ask a kernel for completions on the thing at POS in BUFFER."
@@ -1214,7 +1415,9 @@ Note, this does not work if you run the block async."
 	  (org-edit-src-exit))))))
 
 ;; Adapted to enable in org-buffers. Note, to enable this, you have to add
-;; (add-to-list 'company-backends 'company-ob-ipython) to an init file
+;; (add-to-list 'company-backends 'company-ob-ipython) to an init file. There
+;; are also reports that it is slow.
+
 (defun company-ob-ipython (command &optional arg &rest ignored)
   (interactive (list 'interactive))
   (cl-case command
@@ -1227,7 +1430,7 @@ Note, this does not work if you run the block async."
     (candidates (cons :async (lambda (cb)
                                (let ((res (ob-ipython-completions
                                            (current-buffer) (1- (point)))))
-                                 (funcall cb (cdr (assoc 'matches res)))))))
+                                 (funcall cb (-uniq (cdr (assoc 'matches res))))))))
     (sorted t)
     (doc-buffer (ob-ipython--company-doc-buffer
                  (cdr (assoc 'text/plain (ob-ipython--inspect arg (length arg))))))))
@@ -1237,7 +1440,7 @@ Note, this does not work if you run the block async."
   "Use ivy to complete the thing at point."
   (interactive)
   (let* ((result (ob-ipython-completions (current-buffer) (1- (point))))
-	 (candidates (cdr (assoc 'matches result)))
+	 (candidates (-uniq (cdr (assoc 'matches result))))
 	 (beg (1+ (cdr (assoc 'cursor_start result))))
 	 (end (1+ (cdr (assoc 'cursor_end result)))))
     (ivy-read "Complete: " candidates

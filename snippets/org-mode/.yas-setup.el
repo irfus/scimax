@@ -1,4 +1,14 @@
 (require 'yasnippet)
+(require 'cal-iso)
+
+(defun iso-week-to-time(year week day)
+  "Convert ISO year, week, day to elisp time value."
+  (apply #'encode-time
+         (append '(0 0 0)
+                 (-select-by-indices
+                  '(1 0 2)
+                  (calendar-gregorian-from-absolute (calendar-iso-to-absolute
+                                                     (list week day year)))))))
 
 (defun scimax-get-src-header-val-snippet ()
   "Returns a string for a header value snippet using completion."
@@ -9,9 +19,12 @@
 	 (header-vals (org-babel-combine-header-arg-lists
 		       org-babel-common-header-args-w-values
 		       (when (boundp lang-headers) (eval lang-headers t))))
-	 (header (completing-read "Header: " (mapcar 'symbol-name (mapcar 'car header-vals))))
-	 (vals (cdr (assoc (intern-soft header) headers-vals)))
-	 (val (completing-read "Value: " vals)))
+	 (header (completing-read "Header: "
+				  (mapcar 'symbol-name (mapcar 'car header-vals))))
+	 (vals (cdr (assoc (intern-soft header) header-vals)))
+	 (val (completing-read "Value: " (if (eq vals :any)
+					     '()
+					   vals))))
     (format ":${1:%s} ${2:%s} " header val)))
 
 
@@ -24,6 +37,12 @@ block before there was a language defined."
     (format "#+BEGIN_SRC %s
 $0
 #+END_SRC" lang)))
+
+
+(defun scimax-insert-table-ncolumns ()
+  (concat "| $0 " (s-join " " (cl-loop for i below
+				       (read-number "N columns: ")
+				       collect "| "))))
 
 
 (defvar scimax-installed-bibliography-styles
@@ -49,19 +68,18 @@ $0
 ;; slow, so we don't want to do it on each time. This approach seems more
 ;; reliable than looking for sty files using kpsewhich like I did for the
 ;; bibliography styles
-(unless (and scimax-installed-latex-packages
-	     (executable-find "tlmgr"))
+(when (and (null scimax-installed-latex-packages)
+	   (executable-find "tlmgr"))
   (require 'async)
   (async-start
    `(lambda ()
-      (require 'cl) 
+      (require 'cl)
       (mapcar
        (lambda (s)
-      	 (second (split-string (first (split-string s ":")) " ")))
+	 (second (split-string (first (split-string s ":")) " ")))
        (cl-loop for line in (process-lines ,(executable-find "tlmgr")  "info" "--only-installed")
-      		if (and (stringp line) (string= "i" (substring line 0 1)))
-      		collect line)))
+		if (and (stringp line) (string= "i" (substring line 0 1)))
+		collect line)))
 
-   (lambda (result) 
+   (lambda (result)
      (setq scimax-installed-latex-packages result))))
-

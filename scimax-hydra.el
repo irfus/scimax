@@ -121,13 +121,13 @@ This is a macro so I don't have to quote the hydra name."
   "base"
   ("," scimax-hydra-pop "back" :color blue)
   ("x" counsel-M-x "M-x")
-  ("<return>" save-buffer "Save")
+  ("C-s" save-buffer "Save")
   ("/" undo-tree-undo "undo" :color red)
   ("\\" undo-tree-redo "redo" :color red)
   ("8" (switch-to-buffer "*scratch*") "*scratch*")
   ("?" scimax-hydra-help "Menu help")
   ("." scimax-dispatch-mode-hydra "Major mode hydras")
-  ("u" universal-argument "C-u" :color "red\"\"")
+  ("u" (hydra--universal-argument current-prefix-arg) "C-u" :color red)
   ("q" nil "quit"))
 
 ;;* scimax hydra
@@ -158,11 +158,10 @@ This is a macro so I don't have to quote the hydra name."
   ("r" (scimax-open-hydra scimax-registers/body) "Registers/resume")
   ("s" (scimax-open-hydra scimax-search/body) "Search")
   ("t" (scimax-open-hydra scimax-text/body) "Text")
-  ;; u ?
+  ;; u is a prefix arg, do not reassign
   ("v" (scimax-open-hydra scimax-version-control/body) "Version control")
   ("w" (scimax-open-hydra scimax-windows/body) "Windows")
   ;; x is for M-x, don't reassign
-  ;; y ?
   ("z" (scimax-open-hydra scimax-customize/body) "Customize"))
 
 
@@ -170,12 +169,7 @@ This is a macro so I don't have to quote the hydra name."
 
 (defun scimax-app-hints ()
   "Calculate some variables for the applications hydra."
-  (setq mu4e-unread
-	(s-pad-right 12 " "
-		     (format "email(%s)"
-			     (shell-command-to-string
-			      "echo -n $( mu find maildir:/INBOX flag:unread 2>/dev/null | wc -l )")))
-	elfeed-count
+  (setq elfeed-count
 	(s-pad-right 12 " "
 		     (if (get-buffer "*elfeed-search*")
 			 (format "RSS(%s)"
@@ -190,39 +184,29 @@ This is a macro so I don't have to quote the hydra name."
 				     :inherit (scimax-base/heads))
   "
 applications
-Emacs             Mac            Web
+Emacs                 OS            Web
 -----------------------------------------------------
-_n_: contacts     _a_: app       _c_: google calendar
-_d_: dired        _f_: finder    _W_: tweetdeck
-_e_: %12s`mu4e-unread _i_: iChat
-_r_: %s`elfeed-count _o_: Office
-_w_: twit         _s_: Safari
-_j_: journal      _t_: Terminal
+_d_: dired           _b_: bash      _g_: browser
+_j_: journal         _f_: finder    _c_: google calendar
+^ ^                  _o_: Office    _s_: GSuite
+_r_: %s`elfeed-count
 ------------------------------------------------------
 commands
 _k_: list packages _m_: compose mail
 ------------------------------------------------------
 "
-  ("a" app)
+
+  ("b" bash)
   ("c" google-calendar)
   ("d" dired)
-  ("e" (if (get-buffer "*mu4e-headers*")
-	   (progn
-	     (switch-to-buffer "*mu4e-headers*")
-	     (delete-other-windows))
-	 (mu4e)))
   ("f" finder)
-  ("i" messages)
   ("j" scimax-journal/body)
+  ("g" google)
   ("k" package-list-packages)
   ("m" compose-mail)
-  ("n" ivy-contacts)
-  ("r" elfeed)
-  ("s" safari)
-  ("t" terminal)
-  ("w" twit)
-  ("W" tweetdeck)
-  ("o" (scimax-open-hydra scimax-office/body)))
+  ("o" (scimax-open-hydra scimax-office/body))
+  ("s" (scimax-open-hydra scimax-gsuite/body))
+  ("r" elfeed))
 
 
 (defhydra scimax-office (:color blue)
@@ -230,6 +214,13 @@ _k_: list packages _m_: compose mail
   ("e" excel"Excel")
   ("p" powerpoint "Powerpoint")
   ("w" word "Word"))
+
+(defhydra scimax-gsuite (:color blue)
+  "GSuite"
+  ("v" (browse-url "https://drive.google.com/drive/u/0/my-drive"))
+  ("d" (browse-url "https://docs.google.com/document/u/0/"))
+  ("h" (browse-url "https://docs.google.com/spreadsheets/u/0/"))
+  ("s" (browse-url "https://docs.google.com/presentation/u/0/")))
 
 ;;** buffers
 
@@ -370,7 +361,7 @@ _p_: ffap
 ;;** insert
 
 (defhydra scimax-insert (:color blue :inherit (scimax-base/heads) :columns 3)
-  "help"
+  "insert stuff"
   ("b" insert-buffer "Buffer")
   ("c" insert-char "Char")
   ("e" ivy-insert-org-entity "Org-entity")
@@ -379,7 +370,10 @@ _p_: ffap
   ("p" insert-parentheses "Parentheses")
   ("r" insert-register "Register")
   ("s" screenshot "org screenshot")
-  ("t" org-time-stamp "Timestamp"))
+  ("t" org-time-stamp-inactive "Inactive [timestamp]")
+  ("T" org-time-stamp "Active <timestamp>")
+  ("k" org-inlinetask-insert-task "org task")
+  ("y" yas-insert-snippet "yasnippet"))
 
 ;;** jump
 
@@ -388,6 +382,7 @@ _p_: ffap
   ("<" beginning-of-buffer "Beginning of buffer")
   (">" end-of-buffer "End of buffer")
   ("a" beginning-of-line "Beginning of line")
+  ("b" counsel-ibuffer "Buffer")
   ("d" ace-window "Ace window")
   ("e" end-of-line "End of line")
   ("c" (scimax-open-hydra scimax-jump-char/body) "Char")
@@ -397,6 +392,7 @@ _p_: ffap
   ("k" ace-link "Link")
   ("o" (scimax-open-hydra scimax-jump-org/body) "Org")
   ("p" avy-jump-to-paragraph "Paragraph")
+  ("r" counsel-recentf "Recent file")
   ("s" avy-jump-to-sentence "Sentence")
   ("w" (scimax-open-hydra scimax-jump-word/body) "Word")
   ("y" (scimax-open-hydra scimax-jump-symbol/body) "Symbol" ))
@@ -422,8 +418,11 @@ _p_: ffap
 (defhydra scimax-jump-org (:color blue :inherit (scimax-base/heads) :columns 3)
   "org"
   ("a" ivy-org-jump-to-agenda-heading "Agenda heading")
+  ("bb" scimax-jump-to-block "Jump to block")
+  ("bv" scimax-jump-to-visible-block "Jump to visible block")
   ("d" ivy-org-jump-to-heading-in-directory "Directory heading")
   ("h" ivy-org-jump-to-heading "Heading")
+  ("k" ace-link "link")
   ("o" ivy-org-jump-to-open-headline "Open heading")
   ("p" ivy-org-jump-to-project-headline "Project heading")
   ("v" ivy-org-jump-to-visible-headline "Visible heading"))
@@ -431,8 +430,9 @@ _p_: ffap
 
 (defhydra scimax-jump-word (:color blue :inherit (scimax-base/heads) :columns 3)
   "word"
+  ("l" avy-jump-to-word-in-line "in line")
+  ("w" avy-goto-word-1 "word1")
   ("0" avy-goto-word-0 "word0")
-  ("1" avy-goto-word-1 "word1")
   ("a" avy-goto-word-0-above "above-0")
   ("A" avy-goto-word-1-above "above-1")
   ("b" avy-goto-word-0-below "below0")
@@ -446,14 +446,23 @@ _p_: ffap
   "symbol"
   ("a" avy-goto-symbol-1-above "Above")
   ("b" avy-goto-symbol-1-below "below")
-  ("s" avy-goto-symbol-1 "symbol"))
+  ("y" avy-goto-symbol-1 "symbol"))
 
 ;;** bookmarks
+
+(require 'org-mac-link)
+
+(defun scimax-bookmark-chrome (nickname)
+  "Save the url currently open as a bookmark."
+  (interactive (list (bmkp-completing-read-lax "Nickname: ")))
+  (bmkp-url-target-set (car (split-string (org-as-mac-chrome-get-frontmost-url) "::"))
+		       nil nickname))
 
 (defhydra scimax-bookmarks (:color blue :inherit (scimax-base/heads) :columns 3)
   "bookmarks"
   ("k" bookmark-jump "jump")
   ("l" bookmark-bmenu-list "list")
+  ("sc" scimax-bookmark-chrome "save chrome url")
   ("su" bmkp-url-target-set "save url")
   ("n" bookmark-set "new"))
 
@@ -471,6 +480,8 @@ _p_: ffap
   ("h" (describe-function 'lispy-mode) "lispy help")
   ("i" ielm "ielm")
   ("l" load-file "load file")
+  ("L" counsel-load-library "load library")
+  ("f" counsel-find-library "find library")
   ("r" eval-region "region")
   ("t" toggle-debug-on-error "toggle debug")
   ("y" edebug-on-entry "debug on entry"))
@@ -515,7 +526,30 @@ _j_: jump to mark
 
 ;;** navigation
 
-(defhydra scimax-navigation (:color red :inherit (scimax-base/heads) :columns 4 :hint nil)
+(defvar scimax-hydra-modes (make-ring 4)
+  "Holds list of navigation modes.")
+
+(ring-insert scimax-hydra-modes 'scimax-nav-paragraph/body)
+(ring-insert scimax-hydra-modes 'scimax-nav-sentence/body)
+(ring-insert scimax-hydra-modes 'scimax-nav-word/body)
+(ring-insert scimax-hydra-modes 'scimax-navigation/body)
+
+
+(defvar scimax-hydra-mode-counter 0
+  "Integer counter for current mode.")
+
+
+(defun scimax-hydra-cycle-navigation-mode (&optional arg)
+  (interactive "P")
+  (if arg
+      (decf scimax-hydra-mode-counter)
+    (incf scimax-hydra-mode-counter))
+  (eval `(scimax-open-hydra ,(ring-ref scimax-hydra-modes scimax-hydra-mode-counter))))
+
+
+(defhydra scimax-navigation (:color red :inherit (scimax-base/heads)
+				    :columns 4 :hint nil
+				    :pre (setq scimax-hydra-mode-counter 0))
   "
 navigation
 -----------------------------------------------------------------------------------
@@ -524,10 +558,11 @@ _a_: beginning of line _e_: end of line _<_: beginning of buffer _>_: end of buf
 
 _H-w_: beginning of word _H-s_: beginning of sentence _H-p_: beginning of paragraph
 _s-w_: end of word _s-s_: end of sentence _s-p_: end of paragraph
+_z_: jump
 
 _f_: delete forward _d_: delete backward
 _t_: transpose chars
-_w_: word mode _s_: sentence mode _p_: paragraph mode
+_<tab>_: %(ring-ref scimax-hydra-modes (+ 1 scimax-hydra-mode-counter)) _S-<tab>_: %(ring-ref scimax-hydra-modes (- scimax-hydra-mode-counter 1))
 -----------------------------------------------------------------------------------
 "
   ("j" backward-char)
@@ -542,40 +577,61 @@ _w_: word mode _s_: sentence mode _p_: paragraph mode
   ("<" beginning-of-buffer)
   (">" end-of-buffer)
   ("t" transpose-chars)
+  ("z" (scimax-open-hydra scimax-jump/body) :color blue)
   ("H-w" backward-word)
   ("H-s" backward-sentence)
-  ("H-p" backward-paragraph)
+  ("H-p" backaward-paragraph)
+  ("s-p" forward-paragraph)
   ("s-w" forward-word)
   ("s-s" forward-sentence)
-  ("s-p" forward-paragraph)
-  ("p" (scimax-open-hydra scimax-nav-paragraph/body) :color blue)
-  ("w" (scimax-open-hydra scimax-nav-word/body) :color blue)
-  ("s" (scimax-open-hydra scimax-nav-sentence/body) :color blue))
+  ("<tab>" scimax-hydra-cycle-navigation-mode :color blue)
+  ("S-<tab>" (scimax-hydra-cycle-navigation-mode t) :color blue))
 
 
-(defhydra scimax-nav-word (:color red :inherit (scimax-base/heads) :columns 4 :hint nil)
+
+(defhydra scimax-nav-word (:color red :inherit (scimax-base/heads)
+				  :columns 4 :hint nil
+				  :pre (setq scimax-hydra-mode-counter 1))
   "
-word
+word navigation
 ----------------------------
 _j_: ← _k_: ↑ _l_: ↓ _;_: →
-_f_: kill forward _d_: kill backward
+_a_: beginning of line _e_: end of line _i_: imenu
+_f_: kill forward _d_: kill backward _m_: Mark word
 _t_: transpose words
+_z_: jump
+
+_<tab>_: %(ring-ref scimax-hydra-modes (+ 1 scimax-hydra-mode-counter)) _S-<tab>_: %(ring-ref scimax-hydra-modes (- scimax-hydra-mode-counter 1))
 ------------------------------------------------------------------"
   ("j" backward-word)
   (";" forward-word)
   ("k" previous-line)
   ("l" next-line)
+  ("<" beginning-of-buffer)
+  (">" end-of-buffer)
+  ("i" counsel-imenu)
+  ("a" beginning-of-line)
+  ("e" end-of-line)
   ("f" (kill-word 1))
   ("d" backward-kill-word)
-  ("t" transpose-words))
+  ("t" transpose-words)
+  ("z" (scimax-open-hydra scimax-jump/body) :color blue)
+
+  ("m" mark-word)
+  ("<tab>" (scimax-hydra-cycle-navigation-mode) :color blue)
+  ("S-<tab>" (scimax-hydra-cycle-navigation-mode t) :color blue))
 
 
-(defhydra scimax-nav-sentence (:color red :inherit (scimax-base/heads) :columns 4 :hint nil)
+(defhydra scimax-nav-sentence (:color red :inherit (scimax-base/heads) :columns 4 :hint nil
+				      :pre (setq scimax-hydra-mode-counter 2))
   "
 sentence
 _j_: ← _k_: ↑ _l_: ↓ _;_: →
 _f_: kill forward _d_: kill backward
 _t_: transpose sentences
+_z_: jump
+
+_<tab>_: %(ring-ref scimax-hydra-modes (+ 1 scimax-hydra-mode-counter)) _S-<tab>_: %(ring-ref scimax-hydra-modes (- scimax-hydra-mode-counter 1))
 ------------------------------------------------------------------"
   ("j" backward-sentence)
   (";" forward-sentence)
@@ -583,15 +639,26 @@ _t_: transpose sentences
   ("l" next-line)
   ("d" (kill-sentence -1))
   ("f" kill-sentence)
-  ("t" transpose-sentences))
+  ("t" transpose-sentences)
+  ("m" (unless (sentence-beginning-p)
+	 (backward-sentence)
+	 (set-mark (point))
+	 (forward-sentence)))
+  ("z" (scimax-open-hydra scimax-jump/body) :color blue)
+  ("<tab>" scimax-hydra-cycle-navigation-mode :color blue)
+  ("S-<tab>" (scimax-hydra-cycle-navigation-mode t) :color blue))
 
 
-(defhydra scimax-nav-paragraph (:color red :inherit (scimax-base/heads) :columns 4 :hint nil)
+(defhydra scimax-nav-paragraph (:color red :inherit (scimax-base/heads) :columns 4 :hint nil
+				       :pre (setq scimax-hydra-mode-counter 3))
   "
 paragraph
 _j_: ← _k_: ↑ _l_: ↓ _;_: →
 _f_: kill forward _d_: kill backward
-_t_: transpose paragraphs
+_t_: transpose paragraphs  _m_: mark paragraph
+_z_: jump
+
+_<tab>_: %(ring-ref scimax-hydra-modes (+ 1 scimax-hydra-mode-counter)) _S-<tab>_: %(ring-ref scimax-hydra-modes (- scimax-hydra-mode-counter 1))
 ------------------------------------------------------------------"
   ("j" backward-paragraph)
   (";" forward-paragraph)
@@ -599,7 +666,11 @@ _t_: transpose paragraphs
   ("l" next-line)
   ("d" (kill-paragraph -1))
   ("f" (kill-paragraph nil))
-  ("t" transpose-paragraphs))
+  ("t" transpose-paragraphs)
+  ("m" mark-paragraph)
+  ("z" (scimax-open-hydra scimax-jump/body) :color blue)
+  ("<tab>" scimax-hydra-cycle-navigation-mode :color blue)
+  ("S-<tab>" (scimax-hydra-cycle-navigation-mode t) :color blue))
 
 ;;** org
 
@@ -608,31 +679,76 @@ _t_: transpose paragraphs
   ("'" org-edit-special "edit")
   ("a" org-agenda "agenda")
   ("b" (scimax-open-hydra scimax-org-block/body) "block hydra")
-  ("c" org-ctrl-c-ctrl-c "C-c C-c")
+  ("cc" org-ctrl-c-ctrl-c "C-c C-c")
+  ("sl" scimax-store-link "store link")
+  ("il" org-insert-link "insert link")
   ("d" (scimax-open-hydra scimax-org-db/body) "org-db hydra")
   ("e" org-export-dispatch "Export")
   ("E" (scimax-open-hydra hydra-ox/body) "export hydra")
   ("g" org-babel-tangle "tangle")
   ("h" ivy-org-jump-to-heading "jump to heading")
-  ("i" org-clock-in "clock in")
-  ("o" org-clock-out "clock out")
+  ("I" org-clock-in "clock in")
+  ("O" org-clock-out "clock out")
   ("n" outline-next-heading "next heading" :color red)
   ("p" outline-previous-heading "previous heading" :color red)
+  ("<tab>" org-cycle "cycle" :color red)
   ("r" (scimax-open-hydra scimax-org-ref/body) "org-ref")
   ("t" (scimax-open-hydra scimax-org-toggle/body) "toggle"))
 
 
-(defhydra scimax-org-block (:color blue :inherit (scimax-base/heads) :columns 3)
+(defhydra scimax-org-block (:color red :inherit (scimax-base/heads) :columns 3)
   "org blocks"
-  ("c" org-babel-remove-result "clear result")
-  ("e" org-babel-execute-src-block "execute")
+  ("r" org-babel-remove-result "clear result")
+  ("<return>" org-babel-execute-src-block "execute")
+  ("S-<return>" scimax-execute-and-next-block "execute and next")
+  ("M-<return>" (scimax-execute-and-next-block t) "execute and new")
   ("n" org-next-block "next block")
-  ("p" org-previous-block "previous block"))
+  ("p" org-previous-block "previous block")
+  ("-" scimax-split-src-block "split block")
+  ("k" scimax-ob-kill-block-and-results "kill")
+  ("w" scimax-ob-copy-block-and-results "copy")
+  ("y" yank "paste")
+  ("c" scimax-ob-clone-block "clone")
+  ("h" scimax-ob-edit-header "edit header")
+  ("v" scimax-jump-to-visible-block "jump to visible")
+  ("j" scimax-jump-to-block "jump to block")
+  ("S-<up>" scimax-ob-move-src-block-up "move up")
+  ("S-<down>" scimax-ob-move-src-block-down "move down"))
+
+
+(defun scimax-installed-latex-packages ()
+  (if (get 'scimax-installed-latex-packages 'packages)
+      (get 'scimax-installed-latex-packages 'packages)
+    (when
+	(executable-find "tlmgr")
+      (require 'async)
+      (async-start
+       `(lambda ()
+	  (require 'cl)
+	  (mapcar
+	   (lambda (s)
+	     (second (split-string (first (split-string s ":")) " ")))
+	   (cl-loop for line in (process-lines ,(executable-find "tlmgr")
+					       "info" "--only-installed")
+		    if (and (stringp line) (string= "i" (substring line 0 1)))
+		    collect line)))
+
+       (lambda (result)
+	 (put 'scimax-installed-latex-packages 'packages result))))
+    '("Getting packages. Try later")))
+
+
+(defun scimax-insert-latex-package ()
+  (interactive)
+  (insert (format "#+latex_header: \\usepackage{%s}"
+		  (completing-read "Package: " (scimax-installed-latex-packages)))))
 
 
 (defhydra scimax-org-ref (:color blue :inherit (scimax-base/heads) :columns 3)
   "org-ref"
   ("b" org-ref-insert-bibliography-link "bibliography")
+  ("s" org-ref-insert-bibliographystyle-link "bibliographystyle")
+  ("p" scimax-insert-latex-package "package")
   ("c" org-ref-insert-link "cite")
   ("l" (org-ref-insert-link '(16)) "label")
   ("r" (org-ref-insert-link '(4)) "ref")
@@ -715,55 +831,73 @@ _C-a_ Async export: %`hydra-ox/async-export
 
 
 ;;** project
-;; https://github.com/abo-abo/hydra/wiki/Projectile
+;; See also https://github.com/abo-abo/hydra/wiki/Projectile
 
-(defhydra hydra-projectile-other-window (:color teal)
-  "projectile-other-window"
-  ("f"  projectile-find-file-other-window        "file")
-  ("g"  projectile-find-file-dwim-other-window   "file dwim")
-  ("d"  projectile-find-dir-other-window         "dir")
-  ("b"  projectile-switch-to-buffer-other-window "buffer")
-  ("q"  nil                                      "cancel" :color blue))
-
-
-(defhydra hydra-projectile (:color teal :hint nil)
-  "
+"
      PROJECTILE: %(projectile-project-root)
 
-     Find File            Search/Tags          Buffers                Cache
-------------------------------------------------------------------------------------------
- _ff_: file            _a_: ag/grep           _i_: Ibuffer           _c_: cache clear
- _fw_: file dwim       _g_: update gtags      _b_: switch to buffer  _x_: remove known project
+     Find File            Search/Tags          Buffers                Cache                      Projects
+---------------------------------------------------------------------------------------------------------
+ _ff_: file            _a_: ag/grep           _i_: Ibuffer           _c_: cache clear            _ww_: Switch project
+ _fw_: file dwim       _g_: update gtags      _b_: switch to buffer  _x_: remove known project   _wo_: Switch open project
  _fd_: file curr dir   _m_: multi-occur       _K_: Kill all buffers  _X_: cleanup non-existing
   _r_: recent file     _._: find definition                      ^^^^_z_: cache current
   _d_: dir             _,_: jump back
   ^ ^                _s-._: xref apropos
 "
-  ("a"   (if (executable-find "ag") projectile-ag projectile-grep))
-  ("b"   projectile-switch-to-buffer)
-  ("c"   projectile-invalidate-cache)
-  ("d"   projectile-find-dir)
-  ("ff"  projectile-find-file)
-  ("fw"  projectile-find-file-dwim)
-  ("fd"  projectile-find-file-in-directory)
-  ("g"   (let* ((pr (projectile-project-root))
-		(gtags (expand-file-name "GTAGS" pr)))
-	   (unless (file-exists-p gtags)
-	     (ggtags-create-tags (projectile-project-root)))
-	   (ggtags-update-tags)))
-  ("i"   projectile-ibuffer)
-  ("K"   projectile-kill-buffers)
-  ("m"   projectile-multi-occur)
-  ("p"   projectile-switch-project)
-  ("r"   projectile-recentf)
-  ("x"   projectile-remove-known-project)
-  ("X"   projectile-cleanup-known-projects)
-  ("z"   projectile-cache-current-file)
-  ("`"   hydra-projectile-other-window/body "other window")
-  ("." xref-find-definitions)
-  ("," xref-pop-marker-stack)
-  ("s-." xref-find-apropos)
-  ("q"   nil "cancel" :color blue))
+(defhydra hydra-projectile (:color teal :hint nil :inherit (scimax-base/heads))
+  "
+     PROJECTILE: %(projectile-project-root)
+"
+
+  ("A" projectile-add-known-project "Add project" :column "projects")
+  ("C" projectile-configure-project "Configure" :column "build")
+  ("D" projectile-dired "Dired" :column "Files")
+  ("E" projectile-edit-dir-locals "dir-locals.el" :column "projects")
+  ("F" projectile-find-file-in-known-projects "Find in projects" :column "Files")
+  ("I" projectile-ibuffer "ibuffer" :column "buffers")
+  ("P" projectile-test-project "Run tests" :column "build")
+  ("R" projectile-regenerate-tags "Rebuild tags" :column "search")
+  ("S" projectile-save-project-buffers "Save buffers" :column "buffers")
+  ("T" projectile-find-test-file)
+  ("V" projectile-browse-dirty-projects "Dirty projects" :column "projects")
+  ("X" projectile-remove-known-project "Remove project" :column "projects")
+
+  ("a" projectile-find-other-file "Find other file" :column "Files")
+  ("b" projectile-switch-to-buffer "Switch buffer" :column "buffers")
+  ("c" projectile-compile-project "Compile" :column "build")
+  ("d" projectile-find-dir "Find dir" :column "Files")
+  ("e" projectile-recentf "Recentf" :column "Files")
+  ("f" projectile-find-file "Find file" :column "Files")
+  ("g" projectile-find-file-dwim "Find dwim" :column "Files")
+  ("h" helm-projectile "helm-projectile")
+  ("i" projectile-invalidate-cache "invalidate cache" :column "projects")
+  ("j" projectile-find-tag "find tag" :column "search")
+  ("k" projectile-kill-buffers "Kill buffers" :column "buffers")
+  ("l" projectile-find-file-in-directory "Find in dir" :column "Files")
+  ("m" projectile-commander)
+  ("o" projectile-multi-occur "moccur" :column "search")
+  ("p" projectile-switch-project "Switch" :column "projects")
+  ("q" projectile-switch-open-project "Switch to open" :column "projects")
+  ("r" projectile-replace "Replace" :column "search")
+  ("t" projectile-toggle-between-implementation-and-test)
+  ("u" projectile-run-project "Run" :column "build")
+  ("v" projectile-vc "vc" :column "build")
+  ("z" projectile-cache-current-file "Cache file" :column "projects")
+
+  ("x1" projectile-run-shell-command-in-root "Run cmd" :column "cmd")
+  ("x7" projectile-run-async-shell-command-in-root "Run async cmd" :column "cmd")
+  ("xe" projectile-run-eshell "eshell" :column "cmd")
+  ("xi" projectile-run-ielm "ielm" :column "cmd")
+  ("xs" projectile-run-shell "shell" :column "cmd")
+  ("xt" projectile-run-term "term" :column "cmd")
+
+  ("sg" projectile-grep "Grep" :column "search")
+  ("sr" projectile-ripgrep "Ripgrep" :column "search")
+  ("ss" projectile-ag "ag" :column "search")
+  ("M-." xref-find-definitions "xref find" :column "search")
+  ("M-," xref-pop-marker-stack "xref pop" :column "search")
+  ("M-/" xref-find-apropos "xref apropos" :column "search"))
 
 
 ;;** registers/resume/replace
@@ -890,9 +1024,9 @@ _l_: list registers
   ("l" magit-log-all "Log")
   ("n" vc-next-action "Next action")
   ("p" magit-push-popup "Push")
-  ("P" magit-pull-popup "Pull")
   ("r" magit-revert-popup "Revert")
   ("s" magit-stage "Stage")
+  ("u" magit-pull-popup "Pull")
   ("v" magit-status "Magit"))
 
 
@@ -901,23 +1035,23 @@ _l_: list registers
 (defhydra scimax-windows (:color blue :inherit (scimax-base/heads) :columns 4 :hint nil)
   "
 Windows:
-Switch             Delete               Split
+Switch              Delete                Split
 ------------------------------------------------------------------
-_a_: ace-window    _0_: delete window   _2_: split below
-_o_: other window  _1_: delete others   _3_: split right
-_5_: other frame   _y_: bury buffer
-_b_: buffers       _%_: delete frame
+_a_: ace-window     _do_: delete window   _sb_: split below
+_ow_: other window  _do_: delete others   _sr_: split right
+_of_: other frame   _y_: bury buffer
+_b_: buffers        _df_: delete frame
 ------------------------------------------------------------------
 "
   ("a" ace-window)
-  ("0" delete-window)
+  ("dw" delete-window)
   ("b" (scimax-open-hydra scimax-buffers/body))
-  ("1" delete-other-windows)
-  ("2" split-window-below)
-  ("3" split-window-right)
-  ("o" other-window)
-  ("5" other-frame)
-  ("%" delete-frame)
+  ("do" delete-other-windows)
+  ("sb" split-window-below)
+  ("sr" split-window-right)
+  ("ow" other-window)
+  ("of" other-frame)
+  ("df" delete-frame)
   ("y" bury-buffer))
 
 
@@ -995,6 +1129,7 @@ doesn't move, it means you were at the beginning of a sentence."
       (backward-sentence)
       (= cp (point)))))
 
+
 (defun paragraph-beginning-p ()
   "Determine if point is at the beginning of a paragraph.
 The idea is to move forward a paragraph, then back.  If the point
@@ -1007,6 +1142,7 @@ doesn't move, it means you were at the beginning of a paragraph."
 
 
 (defun scimax-dispatch-mode-hydra ()
+  "Context sensitive dispatcher."
   (interactive)
   (pcase major-mode
     ('emacs-lisp-mode (scimax-open-hydra scimax-lisp/body))
@@ -1018,7 +1154,11 @@ doesn't move, it means you were at the beginning of a paragraph."
     ('org-mode (let ((el (org-element-context)))
 		 (cond
 		  ((eql (car el) 'src-block)
-		   (scimax-open-hydra scimax-src-block-hydra/body))
+		   (cond
+		    ((string= "ipython" (car (org-babel-get-src-block-info)))
+		     (scimax-obi/body))
+		    (t
+		     (scimax-open-hydra scimax-src-block-hydra/body))))
 
 		  ((memq (car el) '(table table-row table-cell))
 		   (scimax-open-hydra scimax-org-table/body))
@@ -1135,10 +1275,16 @@ _t_: toggle marks _Q_: find/rep
   "
 org item helper
 "
-  ("M-<right>" org-indent-item)
-  ("M-<left>" org-outdent-item)
-  ("M-<up>" org-move-item-up)
-  ("M-<down>" org-move-item-down))
+  ("f" org-indent-item "indent item")
+  ("d" org-outdent-item "outdent item")
+  ("b" org-cycle-list-bullet "cycle bullets")
+  ("B" (org-cycle-list-bullet "previous") "cycle bullet backwards")
+  ("w" org-move-item-up "move up")
+  ("s" org-move-item-down "move down")
+  ("n" org-next-item "next")
+  ("p" org-previous-item "previous")
+  ("i" org-insert-item "insert item")
+  ("t" org-toggle-item "toggle"))
 
 
 (defhydra scimax-src-block-hydra (:color pink :hint nil :inherit (scimax-base/heads))
@@ -1202,7 +1348,7 @@ _ic_: insert column    _M-<left>_: move col left    _d_: edit field
 _dc_: delete colum     _M-<right>_: move col right  _e_: eval formula
 _ir_: insert row       _M-<up>_: move row up        _E_: export table
 _ic_: delete row       _M-<down>_: move row down    _r_: recalculate
-_il_: insert line      _w_: wrap region             _I_: org-table-iterate
+_i-_: insert line      _w_: wrap region             _I_: org-table-iterate
 _-_: insert line/move  ^ ^                          _D_: formula debugger
 _s_ort  _t_ranspose _m_ark
 _<_: beginning of table _>_: end of table
@@ -1218,7 +1364,7 @@ _<_: beginning of table _>_: end of table
   ("e" org-table-eval-formula)
   ("E" org-table-export :color blue)
   ("r" org-table-recalculate)
-  ("i" org-table-iterate)
+  ("I" org-table-iterate)
   ("B" org-table-iterate-buffer-tables)
   ("w" org-table-wrap-region)
   ("D" org-table-toggle-formula-debugger)
@@ -1240,14 +1386,15 @@ _<_: beginning of table _>_: end of table
 (defhydra scimax-org-headline (:color red :hint nil :inherit (scimax-base/heads))
   "
 org headline
-Navigation          Organize         insert
-_n_ext heading      _mu_: move up    _ip_: set property    _s_: narrow subtree _I_: clock in   _,_: priority
-_p_revious heading  _md_: move down  _dp_: delete property _w_: widen          _O_: clock out  _0_: rm priority
-_f_: forward level  _mr_: demote     _it_: tag             _r_: refile         _e_: set effort _1_: A
-_b_: back level     _ml_: promote    _t_: todo             _@_: mark           _E_: inc effort _2_: B
-_j_ump to heading   _ih_: insert hl  _id_: deadline        _=_: columns        ^ ^             _3_: C
-_F_: next block     _a_: archive     _is_: schedule
-_B_: previous block _S_: sort _v_: agenda _/_: sparse tree
+Navigation               Organize         insert
+--------------------------------------------------------------------------------------------------------------------
+_n_ext heading           _mu_: move up    _ip_: set property    _s_: narrow subtree _I_: clock in   _,_: priority
+_p_revious heading       _md_: move down  _dp_: delete property _w_: widen          _O_: clock out  _0_: rm priority
+_f_: forward same level  _mr_: demote     _it_: tag             _r_: refile         _e_: set effort _1_: A
+_b_: back same level     _ml_: promote    _t_: todo             _mm_: mark           _E_: inc effort _2_: B
+_j_ump to heading        _ih_: insert hl  _id_: deadline        _=_: columns        ^ ^             _3_: C
+_F_: next block          _a_: archive     _is_: schedule
+_B_: previous block      _S_: sort        _v_: agenda           _/_: sparse tree
 "
 
   ;; Navigation
@@ -1261,7 +1408,7 @@ _B_: previous block _S_: sort _v_: agenda _/_: sparse tree
   ("a" org-archive-subtree-default-with-confirmation)
   ("ih" org-insert-heading)
   ("S" org-sort)
-  ("@" org-mark-subtree)
+  ("mm" org-mark-subtree)
 
   ;; organization
   ("mu" org-move-subtree-up)
@@ -1282,7 +1429,6 @@ _B_: previous block _S_: sort _v_: agenda _/_: sparse tree
   ("s" org-narrow-to-subtree)
   ("w" widen)
   ("=" org-columns)
-
 
   ("I" org-clock-in)
   ("O" org-clock-out)
@@ -1345,6 +1491,8 @@ _t_: run tests _m_: magit  _8_: autopep8
   ("Ss" elpy-shell-switch-to-shell)
 
   ("8" autopep8))
+
+
 
 
 ;;* the end

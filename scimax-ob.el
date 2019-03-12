@@ -136,6 +136,40 @@ Defaults to 3."
 			(recenter)))))
 
 
+(defun scimax-jump-to-inline-src ()
+  "Jump to an inline src element in the buffer."
+  (interactive)
+  (let ((p '()))
+    (org-element-map (org-element-parse-buffer) 'inline-src-block
+      (lambda (isrc)
+	(push (list  (buffer-substring (org-element-property :begin isrc) (org-element-property :end isrc))
+		     (org-element-property :begin isrc))
+	      p)))
+    (ivy-read "inline: " (reverse p)
+	      :action (lambda (candidate)
+			(goto-char (second candidate))
+			(recenter)))))
+
+
+(defun scimax-ob-jump-to-header ()
+  "Jump to src header."
+  (interactive)
+  (let* ((src-info (org-babel-get-src-block-info 'light))
+	 (header-start (sixth src-info)))
+    (goto-char header-start)))
+
+(defun scimax-ob-jump-to-end ()
+  "Jump to src block end."
+  (interactive)
+  (let* ((src (org-element-context))
+	 (nlines (org-element-property :post-blank src)))
+
+    (goto-char (org-element-property :end src))
+    (when (numberp nlines)
+      (forward-line (* -1 (incf nlines))))
+    (goto-char (line-end-position))))
+
+
 (defun scimax-ob-edit-header ()
   "Edit the src-block header in the minibuffer."
   (interactive)
@@ -144,8 +178,8 @@ Defaults to 3."
 	 (header-end (save-excursion (goto-char header-start)
 				     (line-end-position))))
     (setf (buffer-substring header-start header-end)
-	  (read-input "Header: "
-		      (buffer-substring-no-properties header-start header-end)))))
+	  (read-string "Header: "
+		       (buffer-substring-no-properties header-start header-end)))))
 
 
 ;; kill block
@@ -199,7 +233,7 @@ Defaults to 3."
 
 
 ;; Move blocks
-(defun scimax-ob-move-block-up ()
+(defun scimax-ob-move-src-block-up ()
   "Move block before previous one."
   (interactive)
   (let ((src (org-element-context)))
