@@ -452,10 +452,6 @@
 (use-package pdf-tools
   :quelpa (pdf-tools :fetcher github :repo "irfus/pdf-tools"))
 
-;; [2019-01-23 Wed] commented out. I don't use this at all, and it causes an error on Windows when starting up.
-;; (use-package org-edit-latex)
-
-
 (use-package org-mime
   :ensure nil
   :load-path (lambda () (expand-file-name "org-mime" scimax-dir))
