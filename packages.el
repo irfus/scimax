@@ -441,6 +441,7 @@
 
 (use-package ov)
 
+<<<<<<< HEAD
 ;; Install quelpa and quelpa-use-package for custom package builds
 (use-package quelpa)
 (quelpa
@@ -448,9 +449,8 @@
    :fetcher github
    :repo "quelpa/quelpa-use-package"))
 (require 'quelpa-use-package)
-;; Install patched pdf-tools with retn display support
-(use-package pdf-tools
-  :quelpa (pdf-tools :fetcher github :repo "irfus/pdf-tools"))
+
+(use-package pdf-tools)
 
 (use-package org-mime
   :ensure nil

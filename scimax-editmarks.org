@@ -205,8 +205,8 @@ Export functions should take one argument, the backend as a symbol, and they are
  #+BEGIN_SRC emacs-lisp
 (defvar sem-editmarks
   '((delete :open-marker "{>-" :close-marker "-<}"
-	    :marker-face (:foreground "red" :weight ultra-light)
-	    :face (:foreground "red" :weight bold)
+	    :marker-face (:foreground "red" :weight ultra-light :strike-through t)
+	    :face (:foreground "red" :weight bold :strike-through t)
 	    :keymap sem-editmark-content-map
 	    :help-echo "Deletion. Right click for menu"
 	    :accept-func sem-delete-editmark
@@ -227,6 +227,16 @@ Export functions should take one argument, the backend as a symbol, and they are
 	     :face (:foreground "DarkOrange" :weight bold)
 	     :keymap sem-editmark-content-map
 	     :help-echo "Comment. Right click for menu"
+	     :accept-func sem-delete-editmark
+	     :reject-func sem-delete-editmark
+	     :include-author t
+	     :export sem-export-comment)
+
+    (reply :open-marker "{r>" :close-marker "<r}"
+	     :marker-face (:foreground "DarkOrange3"  :weight ultra-light)
+	     :face (:foreground "DarkOrange3" :weight bold)
+	     :keymap sem-editmark-content-map
+	     :help-echo "Reply. Right click for menu"
 	     :accept-func sem-delete-editmark
 	     :reject-func sem-delete-editmark
 	     :include-author t
@@ -493,7 +503,7 @@ The standard font-lock uses regexps for font-locking. We construct the regexp an
 	     ;; content
 	     `(2 ',(list 'face (plist-get properties :face)
 			 'sem-content t
-			 'local-map sem-editmark-content-map
+			 'local-map (or (plist-get properties :keymap) sem-editmark-content-map)
 			 'help-echo (plist-get properties :help-echo)))
 	     ;; close-marker
 	     `(3 ',(list 'face (plist-get properties :marker-face)
@@ -1216,6 +1226,7 @@ Finally we define a minor mode for the list view.
 (defhydra sem-insert (:color blue :hint nil :columns 3)
   "Editmark insert"
   ("m" (sem-insert 'comment) "comment")
+  ("r" (sem-insert 'reply) "reply")
   ("i" (sem-insert 'insert) "insert")
   ("d" (sem-insert 'delete) "delete")
   ("t" (sem-insert 'typo) "typo")
