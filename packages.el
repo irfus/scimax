@@ -181,7 +181,7 @@
   ;; (setq elpy-rpc-python-command "python")
   (setq python-shell-interpreter "ipython"
 	python-shell-interpreter-args "-i --simple-prompt")
-  (electric-indent-mode +1) 
+  (electric-indent-mode +1)
   (pyvenv-mode 1))
 
 ;; R editing mode (ESS)
@@ -441,7 +441,6 @@
 
 (use-package ov)
 
-<<<<<<< HEAD
 ;; Install quelpa and quelpa-use-package for custom package builds
 (use-package quelpa)
 (quelpa
